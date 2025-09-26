@@ -23,8 +23,12 @@ Perfect for developers who need multiple databases and management tools running 
 
 ```bash
 # Clone the repository
-git clone <your-repo-url> dev_datastack
+git clone https://github.com/skchakri/dev_datastack.git
 cd dev_datastack
+
+# Copy environment template and customize (optional)
+cp .env.example .env
+# Edit .env with your preferred passwords, or let bootstrap.sh handle it
 
 # Make bootstrap executable and run
 chmod +x bootstrap.sh
@@ -161,17 +165,16 @@ dev_datastack/
 ## ⚙️ Configuration
 
 ### Environment Variables
-Edit `.env` to customize:
+Copy `.env.example` to `.env` and customize:
 ```bash
-# Database credentials
-MYSQL_ROOT_PASSWORD=password
-POSTGRES_PASSWORD=password
-MONGO_INITDB_ROOT_PASSWORD=password
+# Copy template
+cp .env.example .env
 
-# pgAdmin
-PGADMIN_DEFAULT_EMAIL=admin@example.com
-PGADMIN_DEFAULT_PASSWORD=password
+# Edit with your secure passwords
+nano .env
 ```
+
+**Security Note**: The `.env` file contains sensitive credentials and is excluded from version control. Always use strong passwords in production environments.
 
 ### Custom Application
 The Nginx service is configured to proxy `https://localhost:3000` to your application running on `http://localhost:3000` on the host machine.

@@ -1,0 +1,39 @@
+# Environment variables
+.env
+
+# Data directories (persistent storage)
+data/
+
+# Nginx logs
+nginx/logs/*.log
+
+# TLS certificates (auto-generated)
+nginx/certs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker volumes and build cache
+.docker/
+
+# Backup files
+*.backup
+*.bak
+*.old
