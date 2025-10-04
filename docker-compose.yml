@@ -59,6 +59,8 @@ services:
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
     ports:
       - "9200:9200"
       - "9300:9300"
@@ -72,7 +74,7 @@ services:
     volumes:
       - ./data/elasticsearch:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '"status"'"]
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -130,7 +132,7 @@ services:
     networks: [devnet]
 
   db-importer:
-    image: alpine:3.20
+    image: ubuntu:22.04
     container_name: db-importer
     depends_on:
       mysql:
@@ -149,12 +151,13 @@ services:
       MONGO_HOST: mongo
       MONGO_USER: "${MONGO_INITDB_ROOT_USERNAME}"
       MONGO_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+      DEBIAN_FRONTEND: noninteractive
     volumes:
       - ./input/mysql:/input/mysql:ro
       - ./input/postgres:/input/postgres:ro
       - ./input/mongo:/input/mongo:ro
       - ./importer/import.sh:/import.sh:ro
-    entrypoint: ["/bin/sh", "-lc", "apk add --no-cache bash inotify-tools mysql-client postgresql-client mongodb-tools curl && bash /import.sh"]
+    entrypoint: ["/bin/bash", "-c", "apt-get update && apt-get install -y mysql-client postgresql-client inotify-tools curl wget gnupg && wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - && echo 'deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse' | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org-tools && bash /import.sh"]
     networks: [devnet]
 
   nginx:
@@ -162,6 +165,7 @@ services:
     container_name: nginx
     ports:
       - "3000:3000"
+      - "80:80"
     volumes:
       - ./nginx/conf:/etc/nginx/conf.d:ro
       - ./nginx/certs:/etc/nginx/certs:ro

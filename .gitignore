@@ -4,6 +4,11 @@
 # Data directories (persistent storage)
 data/
 
+# Database dumps (user-specific)
+input/mysql/
+input/mongo/
+input/postgres/
+
 # Nginx logs
 nginx/logs/*.log
 
