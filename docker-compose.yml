@@ -164,7 +164,6 @@ services:
     image: nginx:1.27-alpine
     container_name: nginx
     ports:
-      - "3000:3000"
       - "80:80"
     volumes:
       - ./nginx/conf:/etc/nginx/conf.d:ro

@@ -64,8 +64,19 @@ if [ -n "${MONGO_DUMP:-}" ] && [ -e "$MONGO_DUMP" ]; then
   else cp -v "$MONGO_DUMP" ./input/mongo/; fi
 fi
 
-# 5) Dev TLS cert & sysctl for ES
-cyan "[5/6] Preparing Nginx TLS cert and sysctl (Elasticsearch)…"
+# 5) Dev TLS cert, nginx config & sysctl for ES
+cyan "[5/6] Preparing Nginx config, TLS cert and sysctl (Elasticsearch)…"
+
+# Copy nginx configuration if it doesn't exist
+if [ ! -f nginx/conf/app.conf ]; then
+  if [ -f input/nginx/app.conf ]; then
+    cp -v input/nginx/app.conf nginx/conf/app.conf
+    green "Copied nginx configuration from input/nginx/app.conf"
+  else
+    red "Warning: input/nginx/app.conf not found, nginx configuration not copied"
+  fi
+fi
+
 if [ ! -f nginx/certs/localhost.crt ] || [ ! -f nginx/certs/localhost.key ]; then
   openssl req -x509 -newkey rsa:2048 -nodes -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -days 825 -subj "/CN=localhost"
   green "Generated self-signed certificate in nginx/certs"
@@ -83,11 +94,10 @@ docker compose --env-file .env up -d
 green "All services are starting."
 echo
 echo "URLs:"
-echo " - App via Nginx TLS: https://localhost:3000 (accept self-signed warning)"
-echo " - Kibana:           http://localhost:5601"
-echo " - pgAdmin:          http://localhost:5050   (email: ${PGADMIN_DEFAULT_EMAIL})"
+echo " - Kibana:           http://localhost:5601 or http://kibana.local"
+echo " - pgAdmin:          http://localhost:5050 or http://postgres.local (email: ${PGADMIN_DEFAULT_EMAIL})"
 echo " - Adminer:          http://localhost:8080"
 echo
 echo "Next steps:"
 echo " - Put DB dumps in ./input/{mysql,postgres,mongo}. Importer will auto-load."
-echo " - Your app should run on host http://localhost:3000 (Nginx proxies with HTTPS)."
+echo " - Add kibana.local and postgres.local to /etc/hosts pointing to 127.0.0.1 for local domain access."
