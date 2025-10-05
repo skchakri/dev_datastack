@@ -72,6 +72,12 @@ cp mydb__backup.sql input/mysql/
 # Database 'mydb' will be created automatically
 ```
 
+**Default Configuration:**
+- MySQL root authentication uses `mysql_native_password` for compatibility
+- Default user `pyr@%` is created with password `pyr`
+- User `pyr` has full privileges on `pyr_partylite_dev` database
+- Initialization script: `input/mysql/00_init_users.sql`
+
 ### PostgreSQL
 ```bash
 # SQL dumps
@@ -89,6 +95,10 @@ cp mydata.archive input/mongo/
 # Directory dumps
 cp -r mydatabase_dump input/mongo/
 ```
+
+**Default Configuration:**
+- Root user has `root` and `readWriteAnyDatabase` roles
+- Initialization script: `input/mongo/00_init_users.js`
 
 **💡 Pro Tip**: Database names are automatically extracted from filenames (everything before `__`).
 
