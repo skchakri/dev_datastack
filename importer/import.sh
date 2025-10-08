@@ -39,7 +39,17 @@ import_mysql_file() {
   esac
 }
 
-initial_mysql(){ shopt -s nullglob; for f in /input/mysql/*; do [ -f "$f" ] && import_mysql_file "$f"; done; }
+grant_mysql_privileges(){
+  log "MySQL: granting privileges to pyr user"
+  mysql -h "$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "
+    GRANT ALL PRIVILEGES ON *.* TO 'pyr'@'%' WITH GRANT OPTION;
+    GRANT ALL PRIVILEGES ON *.* TO 'pyr'@'localhost' WITH GRANT OPTION;
+    GRANT ALL PRIVILEGES ON *.* TO 'pyr'@'127.0.0.1' WITH GRANT OPTION;
+    FLUSH PRIVILEGES;
+  " 2>/dev/null || log "MySQL: pyr user may not exist yet, skipping privilege grant"
+}
+
+initial_mysql(){ shopt -s nullglob; grant_mysql_privileges; for f in /input/mysql/*; do [ -f "$f" ] && import_mysql_file "$f"; done; }
 watch_mysql(){ inotifywait -m -e close_write,create,move /input/mysql --format '%w%f' | while read -r f; do [ -f "$f" ] && import_mysql_file "$f"; done; }
 
 import_pg_file(){
