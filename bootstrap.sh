@@ -77,6 +77,16 @@ if [ ! -f nginx/conf/app.conf ]; then
   fi
 fi
 
+# Update /etc/hosts with development domains
+cyan "Updating /etc/hosts with development domains..."
+HOSTS_ENTRY="127.0.0.1 kibana.local postgres.local partylite.local my.lvhpartylite.com lvhavon.com lvhstup.com lvhnsp.com lvhmonat.com partyorder.lvhpartylite.com"
+if ! grep -q "kibana.local" /etc/hosts; then
+  echo "$HOSTS_ENTRY" | sudo tee -a /etc/hosts >/dev/null
+  green "Added development domains to /etc/hosts"
+else
+  green "/etc/hosts already contains development domains"
+fi
+
 if [ ! -f nginx/certs/localhost.crt ] || [ ! -f nginx/certs/localhost.key ]; then
   openssl req -x509 -newkey rsa:2048 -nodes -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -days 825 -subj "/CN=localhost"
   green "Generated self-signed certificate in nginx/certs"
@@ -98,6 +108,13 @@ echo " - Kibana:           http://localhost:5601 or http://kibana.local"
 echo " - pgAdmin:          http://localhost:5050 or http://postgres.local (email: ${PGADMIN_DEFAULT_EMAIL})"
 echo " - Adminer:          http://localhost:8080"
 echo
+echo "Development URLs:"
+echo " - Partylite:        http://lvh.at, http://my.lvhpartylite.com"
+echo " - Avon:             http://lvhavon.com"
+echo " - StampinUp:        http://lvhstup.com"
+echo " - Nature's Sunshine: http://lvhnsp.com"
+echo " - Monat:            http://lvhmonat.com"
+echo " - Party Order:      http://partyorder.lvhpartylite.com"
+echo
 echo "Next steps:"
 echo " - Put DB dumps in ./input/{mysql,postgres,mongo}. Importer will auto-load."
-echo " - Add kibana.local and postgres.local to /etc/hosts pointing to 127.0.0.1 for local domain access."
