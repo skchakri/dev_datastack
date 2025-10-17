@@ -21,7 +21,7 @@ services:
     networks: [devnet]
 
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg17
     container_name: postgres
     environment:
       POSTGRES_USER: "${POSTGRES_USER}"
@@ -107,7 +107,7 @@ services:
     networks: [devnet]
 
   pgadmin:
-    image: dpage/pgadmin4:8.10
+    image: dpage/pgadmin4:9.9
     container_name: pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
