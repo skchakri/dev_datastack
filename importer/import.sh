@@ -25,7 +25,8 @@ import_mysql_file() {
         mysql -h "$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$db" < "$f"
       else
         log "MySQL: import $f (as-is)"; mysql -h "$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" < "$f"
-      fi ;;
+      fi
+      log "MySQL: removing processed file $f"; rm -f "$f" ;;
     *.sql.gz)
       if [ -n "$db" ]; then
         log "MySQL: ensure DB \`$db\` and import (gz) $f"
@@ -34,7 +35,8 @@ import_mysql_file() {
       else
         log "MySQL: import (gz) $f (as-is)"
         gunzip -c "$f" | mysql -h "$MYSQL_HOST" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD"
-      fi ;;
+      fi
+      log "MySQL: removing processed file $f"; rm -f "$f" ;;
     *) log "MySQL: skip $f" ;;
   esac
 }
@@ -57,9 +59,12 @@ import_pg_file(){
   log "Postgres: ensure DB "$db""
   psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$default_db" -tc "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1 ||     psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$default_db" -c "CREATE DATABASE "${db}";"
   case "$f" in
-    *.sql) log "Postgres: import $f into "$db""; psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db" -f "$f" ;;
-    *.sql.gz) log "Postgres: import (gz) $f into "$db""; gunzip -c "$f" | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db" ;;
-    *.dump) log "Postgres: restore $f into "$db""; pg_restore -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db" --clean --if-exists "$f" ;;
+    *.sql) log "Postgres: import $f into "$db""; psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db" -f "$f"
+      log "Postgres: removing processed file $f"; rm -f "$f" ;;
+    *.sql.gz) log "Postgres: import (gz) $f into "$db""; gunzip -c "$f" | psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db"
+      log "Postgres: removing processed file $f"; rm -f "$f" ;;
+    *.dump) log "Postgres: restore $f into "$db""; pg_restore -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$db" --clean --if-exists "$f"
+      log "Postgres: removing processed file $f"; rm -f "$f" ;;
     *) log "Postgres: skip $f" ;;
   esac
 }
@@ -72,12 +77,15 @@ mongo_restore_path(){
   if [ -d "$path" ]; then
     if [ -n "$db" ]; then log "Mongo: restore dir $path -> db $db"; mongorestore --host "$MONGO_HOST" $auth --drop --db "$db" "$path"
     else log "Mongo: restore dir $path (as-is)"; mongorestore --host "$MONGO_HOST" $auth --drop "$path"; fi
+    log "Mongo: removing processed directory $path"; rm -rf "$path"
   else
     case "$path" in
       *.archive) if [ -n "$db" ]; then log "Mongo: restore $path -> db $db"; mongorestore --host "$MONGO_HOST" $auth --drop --archive="$path" --db "$db"
-                 else log "Mongo: restore $path (as-is)"; mongorestore --host "$MONGO_HOST" $auth --drop --archive="$path"; fi ;;
+                 else log "Mongo: restore $path (as-is)"; mongorestore --host "$MONGO_HOST" $auth --drop --archive="$path"; fi
+                 log "Mongo: removing processed file $path"; rm -f "$path" ;;
       *.archive.gz) if [ -n "$db" ]; then log "Mongo: restore (gz) $path -> db $db"; gunzip -c "$path" | mongorestore --host "$MONGO_HOST" $auth --drop --archive --db "$db"
-                    else log "Mongo: restore (gz) $path (as-is)"; gunzip -c "$path" | mongorestore --host "$MONGO_HOST" $auth --drop --archive; fi ;;
+                    else log "Mongo: restore (gz) $path (as-is)"; gunzip -c "$path" | mongorestore --host "$MONGO_HOST" $auth --drop --archive; fi
+                    log "Mongo: removing processed file $path"; rm -f "$path" ;;
       *) log "Mongo: skip $path" ;;
     esac
   fi
