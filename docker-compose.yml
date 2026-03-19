@@ -6,6 +6,13 @@ services:
   mysql:
     image: mysql:8.0
     container_name: mysql
+    command: >
+      --max-connections=500
+      --max-allowed-packet=512M
+      --innodb-buffer-pool-size=1G
+      --innodb-log-file-size=256M
+      --innodb-flush-log-at-trx-commit=2
+      --innodb-flush-method=O_DIRECT
     environment:
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
     ports:
@@ -23,6 +30,16 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     container_name: postgres
+    command: >
+      postgres
+      -c max_connections=500
+      -c shared_buffers=512MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=512MB
+      -c wal_buffers=64MB
+      -c max_wal_size=2GB
+      -c checkpoint_completion_target=0.9
+      -c synchronous_commit=off
     environment:
       POSTGRES_USER: "${POSTGRES_USER}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -132,7 +149,7 @@ services:
     networks: [devnet]
 
   db-importer:
-    image: ubuntu:22.04
+    build: ./importer
     container_name: db-importer
     depends_on:
       mysql:
@@ -151,13 +168,10 @@ services:
       MONGO_HOST: mongo
       MONGO_USER: "${MONGO_INITDB_ROOT_USERNAME}"
       MONGO_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
-      DEBIAN_FRONTEND: noninteractive
     volumes:
       - ./input/mysql:/input/mysql
       - ./input/postgres:/input/postgres
       - ./input/mongo:/input/mongo
-      - ./importer/import.sh:/import.sh:ro
-    entrypoint: ["/bin/bash", "-c", "apt-get update && apt-get install -y mysql-client postgresql-client inotify-tools curl wget gnupg && wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - && echo 'deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse' | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org-tools && bash /import.sh"]
     networks: [devnet]
 
   nginx:

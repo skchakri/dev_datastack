@@ -3,89 +3,70 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-This is a Docker-based development data stack that provides MySQL 8.0, PostgreSQL 16, MongoDB 7, Elasticsearch 8.14.3, Redis 7, plus management UIs (Kibana, pgAdmin, Adminer) and Nginx with TLS termination. It's designed as a turnkey development environment with automatic database import functionality.
+Docker-based development data stack providing MySQL 8.0, PostgreSQL 17 (with pgvector), MongoDB 7, Elasticsearch 8.14.3, Redis 7, management UIs (Kibana, pgAdmin 9.9, Adminer), and Nginx reverse proxy. Designed as a turnkey local development environment with automatic database import via inotifywait file watching.
 
 ## Common Commands
 
 ### Stack Management
 ```bash
-# Full setup (fresh Ubuntu system)
-./bootstrap.sh
+./bootstrap.sh                        # Full interactive setup (installs Docker, prompts for creds, starts stack)
+docker compose up -d                  # Start all services
+docker compose down                   # Stop all services
+docker compose logs -f [service]      # View service logs
+docker compose ps                     # Check service status
+```
 
-# Start all services
-docker compose up -d
-
-# Stop all services
-docker compose down
-
-# View service logs
-docker compose logs -f [service-name]
-
-# Check service status
-docker compose ps
+### Database Shells
+```bash
+docker compose exec mysql mysql -uroot -p$MYSQL_ROOT_PASSWORD
+docker compose exec postgres psql -U $POSTGRES_USER
+docker compose exec mongo mongosh -u root -p $MONGO_INITDB_ROOT_PASSWORD
+docker compose exec redis redis-cli
 ```
 
 ### Database Import
-```bash
-# Import files by dropping into input directories:
-# - input/mysql/*.sql or *.sql.gz (database name from filename before __)
-# - input/postgres/*.sql, *.sql.gz, or *.dump
-# - input/mongo/<directory> or *.archive, *.archive.gz
+Drop files into `input/` directories — the db-importer container watches with inotifywait and auto-imports:
+- `input/mysql/*.sql` or `*.sql.gz` — database name extracted from filename prefix before `__`
+- `input/postgres/*.sql`, `*.sql.gz`, or `*.dump` — same naming convention
+- `input/mongo/<directory>` or `*.archive`, `*.archive.gz`
 
-# Manual import trigger (if needed)
-docker compose exec db-importer /app/import.sh
-```
-
-### Development
-```bash
-# Access container shells
-docker compose exec mysql bash
-docker compose exec postgres bash
-docker compose exec mongo bash
-
-# View importer logs (for debugging imports)
-docker compose logs -f db-importer
-```
+Files are **deleted after successful import**. Check importer logs with `docker compose logs -f db-importer`.
 
 ## Architecture
 
+### Nginx Reverse Proxy Routing
+Nginx listens on ports 80 and 3000, routing by `server_name` to different host ports:
+
+| Domain Pattern | Proxies To | Purpose |
+|---|---|---|
+| localhost:3000 | host:3000 | Default app |
+| partylite.local, lvh.at, lvh.de/ch/fr/pl/sk/cz, my.lvhpl.com | host:3000 | Partylite |
+| lvhavon.com (+ wildcard subdomains) | host:3001 | Avon |
+| lvhstup.com (+ wildcard subdomains) | host:3002 | StampinUp |
+| lvhnsp.com (+ wildcard subdomains) | host:3003 | Nature's Sunshine |
+| lvhmonat.com (+ wildcard subdomains) | host:3004 | Monat |
+| lvhpoe.com (+ wildcard subdomains) | host:3005 | PartyOrder |
+| kibana.local | kibana:5601 | Kibana UI |
+| postgres.local | pgadmin:80 | pgAdmin UI |
+
 ### Service Dependencies
-- **db-importer**: Depends on mysql, postgres, mongo being healthy
-- **kibana**: Depends on elasticsearch being healthy
-- **nginx**: Runs independently, proxies host port 3000
+- **db-importer**: Waits for mysql, postgres, mongo to be healthy before starting. Built from `importer/Dockerfile` (pre-installs clients + pigz), then runs `importer/import.sh`.
+- **kibana**: Depends on elasticsearch.
+- All services on `devnet` bridge network. Host access via `host.docker.internal`.
 
-### Network Architecture
-- All services communicate via `devnet` bridge network
-- External access via mapped ports to localhost
-- Nginx provides HTTPS termination with self-signed certificates
+### Import System Details
+- `importer/import.sh`: `db_from_name()` extracts database name from filename (strips extensions, takes text before `__`).
+- MySQL imports also run `grant_mysql_privileges()` to grant ALL PRIVILEGES to a `pyr` user on startup.
+- Imported files/directories are removed after processing.
 
-### Data Persistence
-- All database data persisted in `./data/` directory
-- Nginx logs in `./nginx/logs/`
-- TLS certificates in `./nginx/certs/`
-
-### Import System
-The db-importer service uses `inotifywait` to monitor `./input/` directories and automatically imports new files:
-- **MySQL**: Extracts database name from filename prefix (before `__`)
-- **PostgreSQL**: Creates database from filename, handles .dump format via pg_restore
-- **MongoDB**: Supports both directory dumps and .archive formats
+### Key Configuration
+- **Environment**: `.env` file (credentials, see `.env.example` for template)
+- **Elasticsearch**: Single-node, 1GB heap, security disabled. Requires `vm.max_map_count >= 262144`
+- **Redis**: AOF persistence enabled (`--appendonly yes`)
+- **PostgreSQL**: Uses `pgvector/pgvector:pg17` image (pgvector extension available)
 
 ## Service Endpoints
-- **Application**: https://localhost:3000 (SSL-enabled, proxies to host)
-- **Kibana**: http://localhost:5601
-- **pgAdmin**: http://localhost:5050
+- **Kibana**: http://localhost:5601 or http://kibana.local
+- **pgAdmin**: http://localhost:5050 or http://postgres.local
 - **Adminer**: http://localhost:8080
-- **Direct DB access**: MySQL:3306, PostgreSQL:5432, MongoDB:27017, Elasticsearch:9200, Redis:6379
-
-## Configuration
-- **Environment variables**: Stored in `.env` file
-- **Database credentials**: Set via bootstrap.sh or manually in .env
-- **Elasticsearch**: Configured with 1GB heap size
-- **System requirements**: Elasticsearch needs `vm.max_map_count >= 262144` (handled by bootstrap)
-
-## File Structure Notes
-- `bootstrap.sh`: Interactive setup script - handles Docker installation, credentials, TLS certs
-- `docker-compose.yml`: Complete service definitions with health checks
-- `importer/import.sh`: Database import logic with file watching
-- `nginx/conf/app.conf`: Reverse proxy configuration
-- Not a git repository - this is a standalone development toolkit
+- **Direct DB**: MySQL:3306, PostgreSQL:5432, MongoDB:27017, Elasticsearch:9200/9300, Redis:6379
