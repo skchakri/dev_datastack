@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Docker-based development data stack providing MySQL 8.0, PostgreSQL 17 (with pgvector), MongoDB 7, Elasticsearch 8.14.3, Redis 7, management UIs (Kibana, pgAdmin 9.9, Adminer), and Nginx reverse proxy. Designed as a turnkey local development environment with automatic database import via inotifywait file watching.
+Docker-based development data stack providing MySQL 8.0, PostgreSQL 17 (with pgvector), MongoDB 7, Elasticsearch 6.8.23 and 8.14.3, Redis 7, management UIs (Kibana, pgAdmin 9.9, Adminer), and Nginx reverse proxy. Designed as a turnkey local development environment with automatic database import via inotifywait file watching.
 
 ## Common Commands
 
@@ -61,7 +61,7 @@ Nginx listens on ports 80 and 3000, routing by `server_name` to different host p
 
 ### Key Configuration
 - **Environment**: `.env` file (credentials, see `.env.example` for template)
-- **Elasticsearch**: Single-node, 1GB heap, security disabled. Requires `vm.max_map_count >= 262144`
+- **Elasticsearch**: Two instances — ES 6.8.23 (ports 9200/9300) and ES 8.14.3 (ports 9201/9301). Both single-node, 1GB heap, security disabled. Requires `vm.max_map_count >= 262144`
 - **Redis**: AOF persistence enabled (`--appendonly yes`)
 - **PostgreSQL**: Uses `pgvector/pgvector:pg17` image (pgvector extension available)
 
@@ -69,4 +69,4 @@ Nginx listens on ports 80 and 3000, routing by `server_name` to different host p
 - **Kibana**: http://localhost:5601 or http://kibana.local
 - **pgAdmin**: http://localhost:5050 or http://postgres.local
 - **Adminer**: http://localhost:8080
-- **Direct DB**: MySQL:3306, PostgreSQL:5432, MongoDB:27017, Elasticsearch:9200/9300, Redis:6379
+- **Direct DB**: MySQL:3306, PostgreSQL:5432, MongoDB:27017, Elasticsearch 6.x:9200/9300, Elasticsearch 8.x:9201/9301, Redis:6379
