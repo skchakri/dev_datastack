@@ -6,6 +6,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: mysql
+    restart: unless-stopped
     command: >
       --max-connections=500
       --max-allowed-packet=512M
@@ -30,6 +31,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     container_name: postgres
+    restart: unless-stopped
     command: >
       postgres
       -c max_connections=500
@@ -58,6 +60,7 @@ services:
   mongo:
     image: mongo:7
     container_name: mongo
+    restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
       MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
@@ -73,6 +76,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.8.23
     container_name: elasticsearch
+    restart: unless-stopped
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
@@ -99,6 +103,7 @@ services:
   elasticsearch-8:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
     container_name: elasticsearch-8
+    restart: unless-stopped
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
@@ -126,6 +131,7 @@ services:
   redis:
     image: redis:7
     container_name: redis
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
@@ -141,6 +147,7 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.3
     container_name: kibana
+    restart: unless-stopped
     depends_on:
       - elasticsearch-8
     ports:
@@ -152,6 +159,7 @@ services:
   pgadmin:
     image: dpage/pgadmin4:9.9
     container_name: pgadmin
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
       PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
@@ -166,6 +174,7 @@ services:
   adminer:
     image: adminer:4
     container_name: adminer
+    restart: unless-stopped
     ports:
       - "8080:8080"
     depends_on:
@@ -177,6 +186,7 @@ services:
   db-importer:
     build: ./importer
     container_name: db-importer
+    restart: "no"
     depends_on:
       mysql:
         condition: service_healthy
