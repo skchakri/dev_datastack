@@ -22,6 +22,13 @@ if ! command -v docker >/dev/null 2>&1; then
   green "Docker installed. You may need to log out/in for group changes."
 fi
 
+if ! command -v vlc >/dev/null 2>&1; then
+  cyan "Installing VLC media player..."
+  sudo apt-get update -y
+  sudo apt-get install -y vlc
+  green "VLC installed."
+fi
+
 # 2) Prompt for credentials with defaults
 cyan "[2/6] Gathering database credentials (press Enter for defaults)…"
 read -rp "MySQL username [root]: " MYSQL_USER; MYSQL_USER=${MYSQL_USER:-root}
