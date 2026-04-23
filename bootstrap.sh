@@ -8,7 +8,7 @@ red() { echo -e "\033[31m$*\033[0m"; }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || (echo "Missing $1" && return 1); }
 
 # 1) Ensure dependencies
-cyan "[1/6] Checking Docker & tools..."
+cyan "[1/7] Checking Docker & tools..."
 if ! command -v docker >/dev/null 2>&1; then
   cyan "Installing Docker Engine..."
   sudo apt-get update -y
@@ -29,8 +29,15 @@ if ! command -v vlc >/dev/null 2>&1; then
   green "VLC installed."
 fi
 
+if ! command -v dnsmasq >/dev/null 2>&1; then
+  cyan "Installing dnsmasq..."
+  sudo apt-get update -y
+  sudo apt-get install -y dnsmasq
+  green "dnsmasq installed."
+fi
+
 # 2) Prompt for credentials with defaults
-cyan "[2/6] Gathering database credentials (press Enter for defaults)…"
+cyan "[2/7] Gathering database credentials (press Enter for defaults)…"
 read -rp "MySQL username [root]: " MYSQL_USER; MYSQL_USER=${MYSQL_USER:-root}
 read -rsp "MySQL password [password]: " MYSQL_ROOT_PASSWORD; echo; MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
 
@@ -44,7 +51,7 @@ read -rp "pgAdmin email [admin@example.com]: " PGADMIN_DEFAULT_EMAIL; PGADMIN_DE
 read -rsp "pgAdmin password [password]: " PGADMIN_DEFAULT_PASSWORD; echo; PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-password}
 
 # 3) Write .env
-cyan "[3/6] Writing .env…"
+cyan "[3/7] Writing .env…"
 cat > .env <<ENV
 MYSQL_USER=${MYSQL_USER}
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
@@ -58,7 +65,7 @@ ENV
 green "Saved credentials to .env"
 
 # 4) Optional: ask for dump files to copy into input/*
-cyan "[4/6] (Optional) Provide dump paths (leave blank to skip)"
+cyan "[4/7] (Optional) Provide dump paths (leave blank to skip)"
 read -rp "Path to a MySQL dump (.sql or .sql.gz) to copy: " MYSQL_DUMP || true
 if [ -n "${MYSQL_DUMP:-}" ] && [ -e "$MYSQL_DUMP" ]; then cp -v "$MYSQL_DUMP" ./input/mysql/; fi
 
@@ -72,7 +79,7 @@ if [ -n "${MONGO_DUMP:-}" ] && [ -e "$MONGO_DUMP" ]; then
 fi
 
 # 5) Dev TLS cert, nginx config & sysctl for ES
-cyan "[5/6] Preparing Nginx config, TLS cert and sysctl (Elasticsearch)…"
+cyan "[5/7] Preparing Nginx config, TLS cert and sysctl (Elasticsearch)…"
 
 # Copy nginx configuration if it doesn't exist
 if [ ! -f nginx/conf/app.conf ]; then
@@ -105,23 +112,79 @@ if ! sysctl vm.max_map_count | grep -q 262144; then
   green "vm.max_map_count set to 262144"
 fi
 
-# 6) Bring up the stack
-cyan "[6/6] Starting Docker stack…"
+# 6) Configure dnsmasq + systemd-resolved for .test TLD → 127.0.0.1
+cyan "[6/7] Configuring dnsmasq for .test TLD…"
+
+DNSMASQ_CONF=/etc/dnsmasq.d/test-tld.conf
+RESOLVED_CONF=/etc/systemd/resolved.conf.d/test-tld.conf
+
+DNSMASQ_WANT=$(cat <<'EOF'
+address=/test/127.0.0.1
+listen-address=127.0.0.1
+bind-interfaces
+no-resolv
+EOF
+)
+
+RESOLVED_WANT=$(cat <<'EOF'
+[Resolve]
+DNS=127.0.0.1
+Domains=~test
+EOF
+)
+
+dns_changed=0
+
+if ! sudo test -f "$DNSMASQ_CONF" || ! echo "$DNSMASQ_WANT" | sudo cmp -s - "$DNSMASQ_CONF"; then
+  echo "$DNSMASQ_WANT" | sudo tee "$DNSMASQ_CONF" >/dev/null
+  green "Wrote $DNSMASQ_CONF"
+  dns_changed=1
+else
+  green "$DNSMASQ_CONF already up to date"
+fi
+
+sudo mkdir -p /etc/systemd/resolved.conf.d
+if ! sudo test -f "$RESOLVED_CONF" || ! echo "$RESOLVED_WANT" | sudo cmp -s - "$RESOLVED_CONF"; then
+  echo "$RESOLVED_WANT" | sudo tee "$RESOLVED_CONF" >/dev/null
+  green "Wrote $RESOLVED_CONF"
+  dns_changed=1
+else
+  green "$RESOLVED_CONF already up to date"
+fi
+
+if [ "$dns_changed" = "1" ] || ! systemctl is-active --quiet dnsmasq; then
+  sudo systemctl restart systemd-resolved
+  sudo systemctl enable --now dnsmasq
+  # dnsmasq can take a moment to settle after (re)start
+  sleep 1
+fi
+
+if resolvectl query foo.test >/dev/null 2>&1; then
+  green ".test TLD resolving via dnsmasq (foo.test → 127.0.0.1)"
+else
+  red "Warning: resolvectl query foo.test failed — check 'systemctl status dnsmasq' and 'resolvectl status'"
+fi
+
+# 7) Bring up the stack
+cyan "[7/7] Starting Docker stack…"
 docker compose --env-file .env up -d
 green "All services are starting."
 echo
 echo "URLs:"
-echo " - Kibana:           http://localhost:5601 or http://kibana.local"
-echo " - pgAdmin:          http://localhost:5050 or http://postgres.local (email: ${PGADMIN_DEFAULT_EMAIL})"
+echo " - Kibana:           http://localhost:5601, http://kibana.local, http://kibana.test"
+echo " - pgAdmin:          http://localhost:5050, http://postgres.local, http://pgadmin.test (email: ${PGADMIN_DEFAULT_EMAIL})"
 echo " - Adminer:          http://localhost:8080"
 echo
-echo "Development URLs:"
-echo " - Partylite:        http://lvh.at, http://my.lvhpartylite.com"
-echo " - Avon:             http://lvhavon.com"
-echo " - StampinUp:        http://lvhstup.com"
-echo " - Nature's Sunshine: http://lvhnsp.com"
-echo " - Monat:            http://lvhmonat.com"
-echo " - Party Order:      http://partyorder.lvhpartylite.com"
+echo "Development URLs (.local needs /etc/hosts; .test auto-resolves via dnsmasq):"
+echo " - Partylite:        http://partylite.test, http://lvh.at, http://my.lvhpartylite.com"
+echo " - Avon:             http://avon.test, http://lvhavon.com"
+echo " - StampinUp:        http://stampinup.test, http://lvhstup.com"
+echo " - Nature's Sunshine: http://nsp.test, http://lvhnsp.com"
+echo " - Monat:            http://monat.test, http://lvhmonat.com"
+echo " - Party Order:      http://partyorder.test, http://partyorder.lvhpartylite.com"
+echo " - Kwiverr:          http://kwiverr.test"
+echo " - ProfVault:        http://profvault.test, http://myprofvault.test"
+echo " - OwnSites:         http://ownsites.test"
 echo
 echo "Next steps:"
 echo " - Put DB dumps in ./input/{mysql,postgres,mongo}. Importer will auto-load."
